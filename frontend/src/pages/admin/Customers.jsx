@@ -12,7 +12,8 @@ import { adminCustomer, adminCustomers, createCustomer, setCustomerActive } from
 import Field from "../../components/Field";
 import { formatAr, formatDate } from "../../utils/format";
 
-const EMPTY = { last_name: "", first_name: "", email: "", phone: "", password: "", password_confirm: "" };
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMPTY = { last_name: "", first_name: "", phone: "", email: "" };
 
 function CustomerForm({ onSaved, onCancel }) {
   const toast = useToast();
@@ -27,17 +28,15 @@ function CustomerForm({ onSaved, onCancel }) {
     const local = {};
     if (!form.last_name.trim()) local.last_name = "Le nom est obligatoire.";
     if (!form.first_name.trim()) local.first_name = "Le prénom est obligatoire.";
-    if (!/^\S+@\S+\.\S+$/.test(form.email)) local.email = "Saisissez une adresse e-mail valide.";
     if (!/^\d{10}$/.test(form.phone)) local.phone = "Le numéro de téléphone doit comporter exactement 10 chiffres.";
-    if (form.password.length < 8) local.password = "Le mot de passe doit contenir au moins 8 caractères.";
-    if (form.password !== form.password_confirm) local.password_confirm = "Les mots de passe ne correspondent pas.";
+    if (form.email.trim() && !EMAIL_RE.test(form.email.trim())) local.email = "Adresse e-mail invalide.";
     setErrors(local);
     setError("");
     if (Object.keys(local).length) return;
     setBusy(true);
     try {
-      await createCustomer(form);
-      toast.success("Client ajouté. Communiquez-lui son e-mail et son mot de passe.");
+      await createCustomer({ ...form, email: form.email.trim() });
+      toast.success("Client ajouté.");
       onSaved();
     } catch (err) {
       setErrors(err.fields || {});
@@ -54,12 +53,12 @@ function CustomerForm({ onSaved, onCancel }) {
         <Field label="Nom" error={errors.last_name}><input value={form.last_name} onChange={set("last_name")} /></Field>
         <Field label="Prénom" error={errors.first_name}><input value={form.first_name} onChange={set("first_name")} /></Field>
       </div>
-      <Field label="Adresse e-mail" error={errors.email}><input type="email" value={form.email} onChange={set("email")} /></Field>
       <Field label="Téléphone" error={errors.phone} hint="10 chiffres, sans espaces">
         <input inputMode="numeric" maxLength={10} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "") })} />
       </Field>
-      <Field label="Mot de passe" error={errors.password} hint="Au moins 8 caractères : le client pourra le changer plus tard"><input type="password" autoComplete="new-password" value={form.password} onChange={set("password")} /></Field>
-      <Field label="Confirmation du mot de passe" error={errors.password_confirm}><input type="password" autoComplete="new-password" value={form.password_confirm} onChange={set("password_confirm")} /></Field>
+      <Field label="E-mail (facultatif)" error={errors.email}>
+        <input type="email" value={form.email} onChange={set("email")} />
+      </Field>
       <div className="modal-actions">
         <button type="button" className="btn btn-outline" onClick={onCancel}>Annuler</button>
         <button className="btn btn-primary" disabled={busy}>{busy ? "Enregistrement..." : "Ajouter le client"}</button>
@@ -106,7 +105,7 @@ export default function Customers() {
               {data.results.map((c) => (
                 <tr key={c.id}>
                   <td data-label="Nom">{c.first_name} {c.last_name}</td>
-                  <td data-label="E-mail">{c.email}</td>
+                  <td data-label="E-mail">{c.email || "—"}</td>
                   <td data-label="Téléphone">{c.phone}</td>
                   <td data-label="Inscrit le">{formatDate(c.date_joined)}</td>
                   <td data-label="Réservations">{c.reservations_count}</td>
@@ -132,7 +131,7 @@ export default function Customers() {
           <>
             <dl className="details">
               <dt>Nom</dt><dd>{detail.data.first_name} {detail.data.last_name}</dd>
-              <dt>E-mail</dt><dd>{detail.data.email}</dd>
+              <dt>E-mail</dt><dd>{detail.data.email || "—"}</dd>
               <dt>Téléphone</dt><dd>{detail.data.phone}</dd>
               <dt>Inscrit le</dt><dd>{formatDate(detail.data.date_joined)}</dd>
             </dl>
@@ -140,7 +139,7 @@ export default function Customers() {
             {detail.data.reservations.length === 0 ? <p className="muted">Aucune réservation.</p> : (
               <div className="table-wrap">
                 <table className="table">
-                  <thead><tr><th>Référence</th><th>Chambre</th><th>Séjour</th><th>Total</th><th>Statut</th></tr></thead>
+                  <thead><tr><th>Référence</th><th>Chambre</th><th>Séjour</th><th>Total</th><th>Payé</th><th>Statut</th></tr></thead>
                   <tbody>
                     {detail.data.reservations.map((r) => (
                       <tr key={r.id}>
@@ -148,6 +147,7 @@ export default function Customers() {
                         <td data-label="Chambre">{r.room.number}</td>
                         <td data-label="Séjour">{formatDate(r.check_in)} - {formatDate(r.check_out)}</td>
                         <td data-label="Total">{formatAr(r.total_amount)}</td>
+                        <td data-label="Payé">{formatAr(r.amount_paid)}</td>
                         <td data-label="Statut"><StatusBadge status={r.status} /></td>
                       </tr>
                     ))}

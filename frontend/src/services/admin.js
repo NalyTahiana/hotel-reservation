@@ -10,6 +10,9 @@ export const addRoomImages = (id, formData) => post(`/admin/rooms/${id}/images/`
 export const deleteRoomImage = (id, imageId) => del(`/admin/rooms/${id}/images/${imageId}/`);
 
 export const adminReservations = (params) => get("/admin/reservations/", params);
+export const availableRooms = (params) => get("/admin/rooms/available/", params);
+export const createAdminReservation = (payload) => post("/admin/reservations/", payload);
+export const setReservationPayment = (id, amountPaid) => post(`/admin/reservations/${id}/payment/`, { amount_paid: amountPaid });
 export const reservationAction = (id, action) => post(`/admin/reservations/${id}/${action}/`);
 
 export const adminCustomers = (params) => get("/admin/customers/", params);

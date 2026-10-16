@@ -45,6 +45,31 @@ class RegisterSerializer(serializers.ModelSerializer):
         return User.objects.create_user(**validated_data)
 
 
+class WalkInCustomerSerializer(serializers.Serializer):
+    """Client venu à l'hôtel : nom, prénom et téléphone ; e-mail facultatif ; aucun mot de passe."""
+
+    last_name = serializers.CharField(max_length=100)
+    first_name = serializers.CharField(max_length=100)
+    phone = serializers.CharField(max_length=10)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+
+    def validate_phone(self, value):
+        phone_validator(value)
+        return value
+
+    def validate_last_name(self, value):
+        return value.strip()
+
+    def validate_first_name(self, value):
+        return value.strip()
+
+    def validate_email(self, value):
+        value = (value or "").strip().lower()
+        if value and User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("Un client existe déjà avec cette adresse e-mail.")
+        return value or None
+
+
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)

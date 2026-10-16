@@ -171,3 +171,53 @@ class PaginationTests(BaseCase):
         admin_page = self.client_for(self.admin).get("/api/admin/rooms/?page=3").json()
         self.assertEqual(admin_page["count"], 15)
         self.assertEqual(len(admin_page["results"]), 3)
+
+
+class WalkInReservationTests(BaseCase):
+    def walkin(self, **over):
+        payload = {
+            "last_name": "Rabe", "first_name": "Paul", "phone": "0321234567", "room": self.room.pk,
+            "check_in": self.d(0), "check_out": self.d(3), "guests": 2, "amount_paid": 100000, **over,
+        }
+        return self.client_for(self.admin).post("/api/admin/reservations/", payload, format="json")
+
+    def test_admin_books_for_walkin_customer_without_email_or_password(self):
+        r = self.walkin()
+        self.assertEqual(r.status_code, 201, r.content)
+        data = r.json()
+        self.assertEqual((data["status"], data["total_amount"], data["amount_paid"], data["balance_due"]), ("accepted", 300000, 100000, 200000))
+        customer = User.objects.get(last_name="Rabe")
+        self.assertIsNone(customer.email)
+        self.assertFalse(customer.has_usable_password())
+
+    def test_walkin_customer_is_reused(self):
+        self.walkin()
+        self.walkin(check_in=self.d(10), check_out=self.d(11))
+        self.assertEqual(User.objects.filter(last_name="Rabe").count(), 1)
+
+    def test_walkin_booking_blocks_the_room(self):
+        self.walkin()
+        self.assertEqual(self.book(self.alice, 1, 2).status_code, 409)
+        self.assertEqual(self.walkin(last_name="Autre").status_code, 409)
+
+    def test_amount_paid_cannot_exceed_total(self):
+        self.assertEqual(self.walkin(amount_paid=300001).status_code, 400)
+
+    def test_client_cannot_use_admin_endpoint(self):
+        r = self.client_for(self.alice).post("/api/admin/reservations/", {}, format="json")
+        self.assertEqual(r.status_code, 403)
+
+    def test_available_rooms_list(self):
+        other = Room.objects.create(number="102", name="Chambre 102", room_type="simple", capacity=1, price_per_night=50000)
+        self.walkin()
+        c = self.client_for(self.admin)
+        url = f"/api/admin/rooms/available/?check_in={self.d(1)}&check_out={self.d(2)}"
+        self.assertEqual([x["id"] for x in c.get(url).json()], [other.pk])
+        self.assertEqual(len(c.get(f"/api/admin/rooms/available/?check_in={self.d(5)}&check_out={self.d(6)}").json()), 2)
+
+    def test_record_payment(self):
+        res_id = self.walkin(amount_paid=0).json()["id"]
+        c = self.client_for(self.admin)
+        r = c.post(f"/api/admin/reservations/{res_id}/payment/", {"amount_paid": 300000}, format="json")
+        self.assertEqual((r.status_code, r.json()["balance_due"]), (200, 0))
+        self.assertEqual(c.post(f"/api/admin/reservations/{res_id}/payment/", {"amount_paid": 400000}, format="json").status_code, 400)

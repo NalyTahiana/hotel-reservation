@@ -68,7 +68,9 @@ def complete_past_reservations():
 
 
 @transaction.atomic
-def create_reservation(*, customer, room_id, check_in, check_out, guests, comment=""):
+def create_reservation(*, customer, room_id, check_in, check_out, guests, comment="", by_admin=False, amount_paid=0):
+    """Crée une réservation. Demande client : « En attente » ; saisie par l'administrateur
+    (client présent à l'hôtel) : directement « Acceptée », sans notification."""
     # Le verrou sur la ligne de la chambre sérialise les demandes concurrentes pour cette chambre :
     # la vérification de chevauchement qui suit voit donc toutes les demandes déjà validées.
     try:
@@ -87,12 +89,47 @@ def create_reservation(*, customer, room_id, check_in, check_out, guests, commen
     if not is_room_available(room.pk, check_in, check_out):
         raise RoomUnavailable()
     nights = (check_out - check_in).days
+    total = nights * room.price_per_night
+    if amount_paid > total:
+        raise ValidationError({"amount_paid": f"Le montant payé ne peut pas dépasser le total ({total} Ar)."})
     reservation = Reservation.objects.create(
         customer=customer, room=room, check_in=check_in, check_out=check_out, guests=guests,
-        price_per_night=room.price_per_night, nights=nights, total_amount=nights * room.price_per_night,
-        status=S.PENDING, comment=comment or "",
+        price_per_night=room.price_per_night, nights=nights, total_amount=total, amount_paid=amount_paid,
+        status=S.ACCEPTED if by_admin else S.PENDING, comment=comment or "",
     )
-    notify.new_reservation(reservation)
+    if not by_admin:
+        notify.new_reservation(reservation)
+    return reservation
+
+
+@transaction.atomic
+def create_reservation_for_room_type(*, customer, room_type, check_in, check_out, guests=1, comment="", by_admin=True):
+    """Réserve la première chambre active libre du type demandé sur [check_in, check_out[."""
+    rooms = filter_available_rooms(Room.objects.filter(is_active=True, room_type=room_type), check_in, check_out)
+    for room in rooms.order_by("number"):
+        try:
+            return create_reservation(
+                customer=customer, room_id=room.pk, check_in=check_in, check_out=check_out,
+                guests=min(guests, room.capacity), comment=comment, by_admin=by_admin,
+            )
+        except RoomUnavailable:
+            continue  # prise entre-temps par une autre demande : essaie la suivante
+    raise RoomUnavailable("Aucune chambre de ce type n'est disponible sur ces dates. Choisissez un autre type ou d'autres dates.")
+
+
+@transaction.atomic
+def set_amount_paid(*, reservation_id, amount_paid):
+    """Enregistre le montant total déjà payé (jamais supérieur au total de la réservation)."""
+    try:
+        reservation = Reservation.objects.select_for_update().get(pk=reservation_id)
+    except Reservation.DoesNotExist:
+        raise NotFound("Réservation introuvable.")
+    if reservation.status in (S.REFUSED, S.CANCELLED):
+        raise InvalidTransition("Aucun paiement ne peut être enregistré sur une réservation refusée ou annulée.")
+    if amount_paid > reservation.total_amount:
+        raise ValidationError({"amount_paid": f"Le montant payé ne peut pas dépasser le total ({reservation.total_amount} Ar)."})
+    reservation.amount_paid = amount_paid
+    reservation.save(update_fields=["amount_paid", "updated_at"])
     return reservation
 
 

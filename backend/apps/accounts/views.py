@@ -17,6 +17,7 @@ from .serializers import (
     LoginSerializer,
     RegisterSerializer,
     UserSerializer,
+    WalkInCustomerSerializer,
 )
 
 
@@ -99,16 +100,19 @@ class AdminCustomerViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, vie
         return qs
 
     def create(self, request, *args, **kwargs):
-        """L'administrateur crée un compte client (client venu à l'hôtel). Aucune connexion automatique."""
-        serializer = RegisterSerializer(data=request.data)
+        """L'administrateur enregistre un client venu à l'hôtel (e-mail facultatif, pas de mot de passe)."""
+        serializer = WalkInCustomerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        d = serializer.validated_data
+        user = User.objects.create_walkin_customer(
+            last_name=d["last_name"], first_name=d["first_name"], phone=d["phone"], email=d.get("email")
+        )
         user.reservations_count = 0
         return Response(CustomerListSerializer(user).data, status=status.HTTP_201_CREATED)
 
     def get_serializer_class(self):
         if self.action == "create":
-            return RegisterSerializer
+            return WalkInCustomerSerializer
         if self.action == "retrieve":
             return CustomerDetailSerializer
         if self.action in ("update", "partial_update"):

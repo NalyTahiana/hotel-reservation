@@ -61,24 +61,42 @@ class AdminCustomerCreationTests(TestCase):
         self.client_user = User.objects.create_user("c@x.com", "MotDePasse!2026", last_name="C", first_name="D", phone="0341234567")
 
     def payload(self, **over):
-        return {"email": "walkin@x.com", "last_name": "Rabe", "first_name": "Paul", "phone": "0321234567",
-                "password": "MotDePasse!2026", "password_confirm": "MotDePasse!2026", **over}
+        return {"last_name": "Rabe", "first_name": "Paul", "phone": "0321234567", **over}
 
-    def test_admin_creates_customer_without_being_logged_in_as_them(self):
+    def test_walkin_customer_with_optional_email(self):
+        c = APIClient()
+        c.force_login(self.admin)
+        r = c.post("/api/admin/customers/", self.payload(email="Paul@Example.com"), format="json")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(User.objects.get(last_name="Rabe").email, "paul@example.com")
+        self.assertEqual(c.post("/api/admin/customers/", self.payload(email="paul@example.com"), format="json").status_code, 400)
+
+    def test_admin_creates_walkin_customer_without_email_or_password(self):
         c = APIClient()
         c.force_login(self.admin)
         r = c.post("/api/admin/customers/", self.payload(), format="json")
         self.assertEqual(r.status_code, 201, r.content)
-        created = User.objects.get(email="walkin@x.com")
+        created = User.objects.get(last_name="Rabe")
         self.assertFalse(created.is_staff)
-        self.assertTrue(created.check_password("MotDePasse!2026"))
+        self.assertIsNone(created.email)
+        self.assertFalse(created.has_usable_password())
         self.assertEqual(c.get("/api/auth/me/").json()["email"], "admin@x.com")
 
-    def test_admin_creation_validates_phone_and_duplicates(self):
+    def test_several_walkin_customers_without_email_are_allowed(self):
+        c = APIClient()
+        c.force_login(self.admin)
+        self.assertEqual(c.post("/api/admin/customers/", self.payload(), format="json").status_code, 201)
+        self.assertEqual(c.post("/api/admin/customers/", self.payload(last_name="Autre"), format="json").status_code, 201)
+
+    def test_walkin_customer_cannot_log_in(self):
+        User.objects.create_walkin_customer(last_name="Rabe", first_name="Paul", phone="0321234567")
+        r = APIClient().post("/api/auth/login/", {"email": "", "password": ""}, format="json")
+        self.assertEqual(r.status_code, 400)
+
+    def test_admin_creation_validates_phone(self):
         c = APIClient()
         c.force_login(self.admin)
         self.assertEqual(c.post("/api/admin/customers/", self.payload(phone="123"), format="json").status_code, 400)
-        self.assertEqual(c.post("/api/admin/customers/", self.payload(email="c@x.com"), format="json").status_code, 400)
 
     def test_client_cannot_create_customers(self):
         c = APIClient()

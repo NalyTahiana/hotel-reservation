@@ -83,6 +83,20 @@ class AdminRoomViewSet(viewsets.ModelViewSet):
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=False, methods=["get"], url_path="available", pagination_class=None)
+    def available(self, request):
+        """Chambres actives libres sur [check_in, check_out[ (liste complète, non paginée), pour la réservation en agence."""
+        params = AvailabilityQuerySerializer(data=request.query_params)
+        params.is_valid(raise_exception=True)
+        data = params.validated_data
+        if not data.get("check_in"):
+            return Response({"check_in": "Indiquez la date d'arrivée et la date de départ."}, status=status.HTTP_400_BAD_REQUEST)
+        qs = Room.objects.filter(is_active=True).prefetch_related("images")
+        if data.get("guests"):
+            qs = qs.filter(capacity__gte=data["guests"])
+        qs = filter_available_rooms(qs, data["check_in"], data["check_out"])
+        return Response(self.get_serializer(qs, many=True).data)
+
     @action(detail=True, methods=["post"], url_path="images")
     def add_images(self, request, pk=None):
         room = self.get_object()

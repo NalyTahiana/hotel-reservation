@@ -27,6 +27,8 @@ class Reservation(models.Model):
     price_per_night = models.PositiveIntegerField("prix par nuit (Ar)")
     nights = models.PositiveSmallIntegerField("nombre de nuits")
     total_amount = models.PositiveBigIntegerField("montant total (Ar)")
+    # Montant déjà encaissé (réservation prise à la réception, ou acompte). Reste à payer = total - payé.
+    amount_paid = models.PositiveBigIntegerField("montant payé (Ar)", default=0)
     status = models.CharField("statut", max_length=12, choices=Status.choices, default=Status.PENDING)
     comment = models.TextField("commentaire", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -40,7 +42,12 @@ class Reservation(models.Model):
         ]
         constraints = [
             models.CheckConstraint(check=Q(check_out__gt=F("check_in")), name="resa_checkout_after_checkin"),
+            models.CheckConstraint(check=Q(amount_paid__lte=F("total_amount")), name="resa_paid_lte_total"),
         ]
+
+    @property
+    def balance_due(self):
+        return max(self.total_amount - self.amount_paid, 0)
 
     def __str__(self):
         return f"{self.reference} ({self.get_status_display()})"
