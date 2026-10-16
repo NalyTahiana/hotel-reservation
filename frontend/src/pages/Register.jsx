@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import ErrorMessage from "../components/ErrorMessage";
 import Field from "../components/Field";
+import PasswordInput from "../components/PasswordInput";
 import { useAuth } from "../context/AuthContext";
 
 const EMPTY = { last_name: "", first_name: "", email: "", phone: "", password: "", password_confirm: "" };
@@ -60,8 +61,8 @@ export default function Register() {
         <Field label="Téléphone" error={errors.phone} hint="10 chiffres, sans espaces">
           <input inputMode="numeric" maxLength={10} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "") })} autoComplete="tel" />
         </Field>
-        <Field label="Mot de passe" error={errors.password}><input type="password" value={form.password} onChange={set("password")} autoComplete="new-password" /></Field>
-        <Field label="Confirmation du mot de passe" error={errors.password_confirm}><input type="password" value={form.password_confirm} onChange={set("password_confirm")} autoComplete="new-password" /></Field>
+        <Field label="Mot de passe" error={errors.password}><PasswordInput value={form.password} onChange={set("password")} autoComplete="new-password" /></Field>
+        <Field label="Confirmation du mot de passe" error={errors.password_confirm}><PasswordInput value={form.password_confirm} onChange={set("password_confirm")} autoComplete="new-password" /></Field>
         <button className="btn btn-primary" disabled={busy}>{busy ? "Création..." : "Créer mon compte"}</button>
         <p className="muted">Déjà inscrit ? <Link to="/connexion" state={{ from }}>Se connecter</Link></p>
       </form>

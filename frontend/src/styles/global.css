@@ -115,6 +115,11 @@ p { margin: 0 0 0.8rem; }
 input, select, textarea { font: inherit; padding: 0.5rem 0.65rem; border: 1px solid #b9c3c9; border-radius: 6px; background: #fff; color: var(--text); width: 100%; }
 input:disabled { background: #eef1f3; color: var(--muted); }
 .has-error input, .has-error select, .has-error textarea { border-color: var(--danger); }
+.password-wrap { position: relative; display: flex; align-items: center; }
+.password-wrap input { padding-right: 2.6rem; }
+.password-toggle { position: absolute; right: 0.3rem; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.password-toggle:hover { color: var(--primary); background: #eef3f5; }
+.password-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .check { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; }
 .check input { width: auto; }
 .readonly { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; }
