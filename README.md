@@ -2,6 +2,7 @@
 
 Application web de réservation d'hôtel : site public, espace client et espace d'administration.
 Les montants sont en ariary (Ar). Toutes les données (comptes, chambres, réservations) sont enregistrées dans PostgreSQL.
+Le backend suit la structure du projet de cours DJANGO II (projet + application, MVT, vues en classes) ; le frontend reste en React.
 
 ## Fonctionnalités
 
@@ -10,32 +11,36 @@ Les montants sont en ariary (Ar). Toutes les données (comptes, chambres, réser
 - Réservation : montant calculé côté serveur, statut initial « En attente », aucune double réservation sur des périodes qui se chevauchent.
 - Espace client : profil modifiable, liste et détail des réservations, annulation.
 - Administration : tableau de bord (données réelles), chambres, réservations (accepter, refuser, annuler, filtres), clients (désactivation sans perte d'historique), services et activités.
+- Client venu à l'hôtel : l'administrateur l'enregistre sans e-mail ni mot de passe, choisit les dates et une chambre libre ; le montant à payer est calculé et la réservation est acceptée directement.
 - Pagination serveur de 10 éléments, interface responsive sans dégradés ni emojis.
 
 ## Technologies
 
-Python 3.10 à 3.12, Django 5.0, Django REST Framework, django-cors-headers, psycopg2, PostgreSQL 13 ou plus récent,
+Python 3.10 à 3.12, Django 5.0 (architecture MVT, vues en classes), psycopg2, PostgreSQL 13 ou plus récent,
 Node.js 18 ou plus récent, React 18, Vite 5, React Router 6.
 
-## Structure
+## Structure (MVT, comme DJANGO II)
 
 ```
 hotel-reservation/
 ├── backend/
-│   ├── config/            settings.py, urls.py, wsgi.py, asgi.py
-│   ├── apps/
-│   │   ├── accounts/      utilisateur personnalisé, inscription, connexion, gestion des clients
-│   │   ├── rooms/         chambres, photos, disponibilité publique, gestion admin
-│   │   ├── reservations/  modèle, règles métier (services.py), API client et admin
-│   │   ├── services/      services et activités de l'hôtel
-│   │   └── dashboard/     statistiques de l'administration
+│   ├── projet/            settings.py, urls.py (toutes les routes), wsgi.py, asgi.py
+│   ├── hotel/             application unique
+│   │   ├── models.py      Modèles : User, Room, RoomImage, HotelService, Reservation, Notification + règles métier
+│   │   ├── forms.py       validation des données reçues
+│   │   ├── views.py       Vues : classes Django qui répondent en JSON
+│   │   ├── admin.py, tests.py, migrations/
 │   ├── media/             photos envoyées (créé automatiquement)
-│   ├── requirements.txt, manage.py, .env.example
-├── frontend/
-│   ├── public/images/     placeholder.svg (+ vos photos : hero.jpg, gallery-1.jpg ... gallery-4.jpg)
-│   └── src/               components, layouts, pages (+ pages/admin), services (appels API), hooks, context, utils, styles
+│   ├── requirements.txt, manage.py, build.sh, .env.example
+├── frontend/              Templates : interface React (components, layouts, pages, services, hooks, context, utils, styles)
 └── README.md
 ```
+
+Correspondance avec le modèle MVT :
+
+- **M (Model)** : `hotel/models.py`. Les règles de réservation (chevauchement, transitions, notifications) sont des méthodes de `Reservation` et `Notification`.
+- **V (View)** : `hotel/views.py`. Chaque vue est une classe (`ChambreListe`, `ReservationListe`, `AdminTableauDeBord`...) déclarée dans `projet/urls.py` avec un nom en `*_name`.
+- **T (Template)** : l'interface React. Django ne renvoie pas de pages HTML mais du JSON, que React affiche.
 
 ## Règles métier importantes
 
@@ -83,7 +88,7 @@ python manage.py runserver
 ```
 
 `createsuperuser` demande l'e-mail, le nom, le prénom, un téléphone de 10 chiffres et le mot de passe : ce compte est l'administrateur.
-Les fichiers de migration sont générés par `makemigrations` à partir des modèles (dossiers `migrations/` livrés vides).
+Les fichiers de migration sont générés par `makemigrations` à partir des modèles (le dossier `hotel/migrations/` est livré vide) : versionnez-les ensuite dans Git.
 
 ### 4. Frontend (second terminal)
 
@@ -125,7 +130,8 @@ L'utilisateur PostgreSQL doit pouvoir créer la base de test (`ALTER USER hotel_
 Pour lancer rapidement les tests sans PostgreSQL : `$env:DB_ENGINE="sqlite"; python manage.py test` (la persistance PostgreSQL se vérifie alors manuellement, ci-dessous).
 
 Les tests couvrent : inscription, connexion, téléphone à 10 chiffres, création et montant, dates invalides, capacité, chevauchement, réservations consécutives,
-libération après refus ou annulation, revérification à l'acceptation, accès administrateur interdit aux clients, isolation des réservations, pagination.
+libération après refus ou annulation, revérification à l'acceptation, accès administrateur interdit aux clients, isolation des réservations, pagination,
+notifications, enregistrement d'un client venu à l'hôtel, chambres (envoi de photos) et services.
 
 **État des résultats** : ces tests ont été écrits mais n'ont pas pu être exécutés dans l'environnement où le projet a été généré (pas d'accès réseau pour installer Django).
 Lancez `python manage.py test` et corrigez ou signalez toute erreur avant de vous fier au projet.
@@ -133,7 +139,7 @@ Lancez `python manage.py test` et corrigez ou signalez toute erreur avant de vou
 ### Vérifications manuelles (frontend et persistance PostgreSQL)
 
 - Créer un compte, une réservation, puis arrêter les deux serveurs, les relancer : le compte et la réservation sont toujours là.
-- Vérifier dans PostgreSQL : `psql -U hotel_user -d hotel_reservation_db -c "SELECT reference, status, total_amount FROM reservations_reservation;"`
+- Vérifier dans PostgreSQL : `psql -U hotel_user -d hotel_reservation_db -c "SELECT reference, status, total_amount FROM hotel_reservation;"`
 - Réduire la fenêtre du navigateur (< 860 px) : menu mobile et tableaux en cartes.
 - Avec un compte client, ouvrir http://localhost:5173/admin : redirection vers l'accueil ; l'API `/api/admin/...` répond 403.
 
@@ -153,11 +159,10 @@ Lancez `python manage.py test` et corrigez ou signalez toute erreur avant de vou
 ## Sécurité
 
 - Sessions Django (cookie HttpOnly) et protection CSRF (en-tête `X-CSRFToken`) ; mots de passe hachés par Django.
-- Permissions vérifiées sur chaque endpoint (`IsAdminUser` pour `/api/admin/`) ; masquer un bouton dans React ne sert que de confort.
-- CORS limité à `FRONTEND_ORIGIN` ; secrets dans `.env` (non versionné).
+- Permissions vérifiées dans chaque vue (`administrateur = True` pour `/api/admin/`) ; masquer un bouton dans React ne sert que de confort.
+- Secrets dans `.env` (non versionné).
 - Avant une mise en production : `DJANGO_DEBUG=False`, clé secrète forte, HTTPS, hôtes autorisés, service des fichiers `media` par le serveur web.
 
 ## Mise en ligne
 
-Voir `DEPLOIEMENT.md` (dépôt GitHub, puis hébergement gratuit sur Render avec PostgreSQL et Cloudinary).
-Après la mise à jour du projet, relancez `pip install -r requirements.txt` dans le backend (nouvelles dépendances).
+Voir `RENDER.md` (dépôt GitHub, puis hébergement gratuit sur Render avec PostgreSQL et Cloudinary).

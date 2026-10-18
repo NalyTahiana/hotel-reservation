@@ -1,4 +1,3 @@
-// Graphique à barres simple (sans bibliothèque).
 export default function BarChart({ title, data, valueKey, format = (v) => v }) {
   const max = Math.max(1, ...data.map((d) => d[valueKey]));
   return (

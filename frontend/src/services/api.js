@@ -5,7 +5,6 @@ function getCookie(name) {
   return match ? decodeURIComponent(match[2]) : null;
 }
 
-// Transforme une réponse d'erreur DRF en message lisible + erreurs par champ.
 function parseErrors(data, status) {
   const fields = {};
   let message = "";
@@ -60,7 +59,6 @@ export async function request(path, { method = "GET", body, params } = {}) {
   try {
     data = await response.json();
   } catch {
-    /* corps vide ou non JSON */
   }
   if (!response.ok) throw new ApiError(response.status, data);
   return data;

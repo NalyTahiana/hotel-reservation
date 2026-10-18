@@ -1,9 +1,6 @@
 Django>=5.0,<5.1
-djangorestframework>=3.15,<3.17
-django-cors-headers>=4.4
 python-dotenv>=1.0
 Pillow>=10.3
-# Base de données PostgreSQL (locale et en ligne) et mise en ligne sur Render
 psycopg2-binary>=2.9
 gunicorn>=22.0
 whitenoise>=6.6

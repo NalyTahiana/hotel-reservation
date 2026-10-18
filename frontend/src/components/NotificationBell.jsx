@@ -8,14 +8,13 @@ import { formatDateTime } from "../utils/format";
 
 const POLL_MS = 30000;
 
-// Cloche de notifications : compteur de non lues, liste déroulante, interrogation du serveur toutes les 30 s.
 export default function NotificationBell({ onNavigate }) {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [data, setData] = useState({ unread_count: 0, results: [] });
   const [open, setOpen] = useState(false);
-  const seen = useRef(null); // ids déjà vus ; null tant que le premier chargement n'est pas fait
+  const seen = useRef(null);
   const box = useRef(null);
 
   const load = useCallback(async () => {
@@ -28,7 +27,6 @@ export default function NotificationBell({ onNavigate }) {
       }
       seen.current = ids;
     } catch {
-      /* erreur réseau ponctuelle : on réessaiera au prochain cycle */
     }
   }, [toast]);
 
@@ -50,7 +48,7 @@ export default function NotificationBell({ onNavigate }) {
 
   const openOne = async (n) => {
     if (!n.is_read) {
-      try { await markNotificationRead(n.id); } catch { /* ignoré */ }
+      try { await markNotificationRead(n.id); } catch { }
       setData((d) => ({ unread_count: Math.max(0, d.unread_count - 1), results: d.results.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)) }));
     }
     setOpen(false);
@@ -62,7 +60,7 @@ export default function NotificationBell({ onNavigate }) {
     try {
       await markAllNotificationsRead();
       setData((d) => ({ unread_count: 0, results: d.results.map((x) => ({ ...x, is_read: true })) }));
-    } catch { /* ignoré */ }
+    } catch { }
   };
 
   return (

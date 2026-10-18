@@ -1,7 +1,7 @@
 # PostgreSQL pour le projet (local et Render)
 
 PostgreSQL est la base utilisée en ligne sur Render. Utiliser la même base en local évite les différences de comportement.
-Les dossiers `migrations/` du projet ne contiennent que `__init__.py` : les migrations sont générées par `makemigrations` (étape 3), à partir des modèles, directement pour PostgreSQL.
+Le dossier `hotel/migrations/` ne contient que `__init__.py` : la migration est générée par `makemigrations` (étape 3), à partir des modèles, directement pour PostgreSQL.
 
 ## 1. Installer PostgreSQL sous Windows
 1. Téléchargez l'installateur sur https://www.postgresql.org/download/windows/ (EDB) et installez-le avec les options par défaut.
@@ -40,7 +40,13 @@ python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
-`makemigrations` ne se lance qu'une fois : versionnez ensuite les fichiers créés dans chaque dossier `migrations/` (Git).
+`makemigrations` ne se lance qu'une fois : versionnez ensuite le fichier créé dans `hotel/migrations/` (Git).
+
+Si vous aviez déjà une base créée avec l'ancienne version du projet, repartez d'une base vide (les tables et le modèle utilisateur ont changé) :
+```sql
+DROP DATABASE hotel_reservation_db;
+CREATE DATABASE hotel_reservation_db OWNER hotel_user ENCODING 'UTF8';
+```
 
 ## 4. (Facultatif) Récupérer les données de l'ancienne base MySQL
 Cette version du projet ne gère plus MySQL : faites l'export **avec l'ancienne copie du projet** (celle qui tourne encore sur MySQL, son `.env` en `DB_ENGINE=mysql`) :

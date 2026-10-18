@@ -11,10 +11,10 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
-        await auth.fetchCsrf(); // pose le cookie CSRF
+        await auth.fetchCsrf();
         setUser(await auth.fetchMe());
       } catch {
-        setUser(null); // non connecté
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     await auth.logout();
     setUser(null);
-    await auth.fetchCsrf(); // le jeton change après la déconnexion
+    await auth.fetchCsrf();
   }, []);
   const updateProfile = useCallback(async (payload) => {
     const u = await auth.updateProfile(payload);

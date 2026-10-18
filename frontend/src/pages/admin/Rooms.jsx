@@ -100,7 +100,7 @@ export default function Rooms() {
   const toast = useToast();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
-  const [editing, setEditing] = useState(null); // null | "new" | room
+  const [editing, setEditing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
   const [busy, setBusy] = useState(false);
   const { data, loading, error, reload } = useFetch(() => adminRooms({ q, page }), [q, page]);

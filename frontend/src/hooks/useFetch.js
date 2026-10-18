@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Charge des données et expose { data, loading, error, reload }.
 export default function useFetch(fetcher, deps = []) {
   const [state, setState] = useState({ data: null, loading: true, error: null });
   const fetcherRef = useRef(fetcher);
@@ -16,7 +15,6 @@ export default function useFetch(fetcher, deps = []) {
     }
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, deps);
   return { ...state, reload: load };
 }

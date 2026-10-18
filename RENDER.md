@@ -14,7 +14,8 @@ Limites du plan gratuit (à vérifier sur render.com/pricing) :
 - le disque est **effacé à chaque redémarrage** : sans Cloudinary, les photos téléversées disparaissent.
 
 ## 0. Préparer le code
-1. Vérifiez que les dossiers `backend/apps/*/migrations/` contiennent bien des fichiers `0001_initial.py` (créés par `makemigrations`). **Ils doivent être envoyés sur GitHub.**
+1. Vérifiez que `backend/hotel/migrations/` contient bien `0001_initial.py` (créé par `python manage.py makemigrations`). **Il doit être envoyé sur GitHub.**
+   Si vous aviez déjà mis en ligne l'ancienne version du projet (applications `accounts`, `rooms`...), supprimez sur Render l'ancienne base de données et le backend, puis recréez-les (étapes 2 et 3) : les tables ont changé.
 2. Ne versionnez jamais `backend/.env` (déjà dans `.gitignore`).
 3. Envoyez le projet sur GitHub (dépôt dont la racine contient `backend/` et `frontend/`) :
 ```bat
@@ -42,7 +43,7 @@ Quand elle est prête, copiez **Internal Database URL**.
 | Root Directory | `backend` |
 | Runtime | Python 3 |
 | Build Command | `bash build.sh` |
-| Start Command | `gunicorn config.wsgi:application` |
+| Start Command | `gunicorn projet.wsgi:application` |
 | Instance Type | Free |
 | Région | la même que la base |
 
@@ -96,6 +97,6 @@ Ouvrez l'adresse du site statique, connectez-vous avec le compte administrateur 
 | `Bad Request (400)` / `DisallowedHost` | Hôte absent de `DJANGO_ALLOWED_HOSTS` : vérifiez `FRONTEND_ORIGIN` (avec `https://`) et redéployez. |
 | 403 CSRF à la connexion | `FRONTEND_ORIGIN` ne correspond pas exactement à l'adresse du site statique. |
 | Erreur 404 sur `/api/...` depuis le site | Règle `/api/*` absente ou placée après `/*`. |
-| `relation ... does not exist` | Migrations non envoyées sur GitHub : `git add backend/apps/*/migrations` puis push. |
+| `relation ... does not exist` | Migrations non envoyées sur GitHub : `git add backend/hotel/migrations` puis push. |
 | Photos disparues | `CLOUDINARY_URL` manquant ou incorrect. |
 | Erreur de build Python | Vérifiez `PYTHON_VERSION=3.12.3` (Django 5.0 n'est pas prévu pour les versions de Python les plus récentes). |
