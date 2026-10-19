@@ -1,21 +1,13 @@
 import { useState } from "react";
 import { EyeIcon, EyeOffIcon } from "./Icons";
 
-// Champ mot de passe avec bouton "oeil" pour afficher / masquer la saisie.
-// Accepte les mêmes props qu'un <input> classique (value, onChange, autoComplete, ...).
 export default function PasswordInput(props) {
   const [visible, setVisible] = useState(false);
+  const label = visible ? "Masquer le mot de passe" : "Afficher le mot de passe";
   return (
-    <div className="password-wrap">
+    <div className="password-input">
       <input {...props} type={visible ? "text" : "password"} />
-      <button
-        type="button"
-        className="password-toggle"
-        onClick={() => setVisible((v) => !v)}
-        aria-label={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-        aria-pressed={visible}
-        title={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-      >
+      <button type="button" className="password-toggle" onClick={() => setVisible((v) => !v)} aria-label={label} aria-pressed={visible} title={label}>
         {visible ? <EyeOffIcon /> : <EyeIcon />}
       </button>
     </div>

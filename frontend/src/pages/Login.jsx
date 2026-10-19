@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import ErrorMessage from "../components/ErrorMessage";
+import PasswordInput from "../components/PasswordInput";
 import Field from "../components/Field";
 import { useAuth } from "../context/AuthContext";
 
@@ -39,7 +40,7 @@ export default function Login() {
           <input type="email" autoComplete="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         </Field>
         <Field label="Mot de passe">
-          <input type="password" autoComplete="current-password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          <PasswordInput autoComplete="current-password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
         </Field>
         <button className="btn btn-primary" disabled={busy}>{busy ? "Connexion..." : "Se connecter"}</button>
         <p className="muted">Pas encore de compte ? <Link to="/inscription" state={{ from }}>Créer un compte</Link></p>
