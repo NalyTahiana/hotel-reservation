@@ -474,3 +474,89 @@ class AdminServiceTests(BaseCase):
 		self.assertEqual(admin.get("/api/admin/services/").json()["count"], 2)
 		self.assertEqual(admin.delete(f"/api/admin/services/{identifiant}/").status_code, 204)
 		self.assertEqual(admin.get("/api/admin/services/").json()["count"], 1)
+
+
+class PaymentTests(BaseCase):
+	def accepter(self, debut=10, fin=12):
+		reservation = self.reserver(self.alice, debut, fin).json()
+		connecte(self.admin).post(f"/api/admin/reservations/{reservation['id']}/accept/")
+		return reservation["id"]
+
+	def payer(self, identifiant, montant, utilisateur=None, **extra):
+		return envoyer(connecte(utilisateur or self.admin), f"/api/admin/reservations/{identifiant}/payments/", {"amount": montant, **extra})
+
+	def test_new_reservation_is_unpaid(self):
+		identifiant = self.accepter()
+		donnees = connecte(self.admin).get(f"/api/admin/reservations/{identifiant}/").json()
+		self.assertEqual((donnees["amount_paid"], donnees["balance"], donnees["payment_status"]), (0, 200000, "unpaid"))
+
+	def test_partial_then_full_payment(self):
+		identifiant = self.accepter()
+		r = self.payer(identifiant, 50000, note="Acompte")
+		self.assertEqual(r.status_code, 201, r.content)
+		self.assertEqual((r.json()["amount_paid"], r.json()["balance"], r.json()["payment_status"]), (50000, 150000, "partial"))
+		r = self.payer(identifiant, 150000)
+		self.assertEqual((r.json()["balance"], r.json()["payment_status"]), (0, "paid"))
+		self.assertEqual(len(r.json()["payments"]), 2)
+		self.assertEqual(Payment.objects.filter(reservation_id=identifiant).count(), 2)
+
+	def test_overpayment_and_invalid_amounts_rejected(self):
+		identifiant = self.accepter()
+		self.assertEqual(self.payer(identifiant, 200001).status_code, 400)
+		self.assertEqual(self.payer(identifiant, 0).status_code, 400)
+		self.assertEqual(self.payer(identifiant, -5).status_code, 400)
+		self.assertEqual(self.payer(identifiant, "abc").status_code, 400)
+		self.assertEqual(Payment.objects.count(), 0)
+
+	def test_payment_refused_once_fully_paid(self):
+		identifiant = self.accepter()
+		self.payer(identifiant, 200000)
+		self.assertEqual(self.payer(identifiant, 1).status_code, 409)
+
+	def test_payment_requires_accepted_reservation(self):
+		en_attente = self.reserver(self.alice, 10, 12).json()["id"]
+		self.assertEqual(self.payer(en_attente, 1000).status_code, 409)
+
+	def test_client_cannot_record_payment(self):
+		identifiant = self.accepter()
+		self.assertEqual(self.payer(identifiant, 1000, utilisateur=self.alice).status_code, 403)
+		self.assertEqual(Payment.objects.count(), 0)
+
+	def test_payment_notifies_customer(self):
+		identifiant = self.accepter()
+		self.payer(identifiant, 50000)
+		notification = Notification.objects.filter(user=self.alice, kind=Notification.Kind.PAYMENT).get()
+		self.assertIn("50 000 Ar", notification.message)
+		self.assertIn("150 000 Ar", notification.message)
+
+	def test_client_cannot_cancel_after_payment(self):
+		identifiant = self.accepter()
+		self.payer(identifiant, 50000)
+		self.assertEqual(connecte(self.alice).post(f"/api/reservations/{identifiant}/cancel/").status_code, 409)
+		self.assertEqual(Reservation.objects.get(pk=identifiant).status, Reservation.Status.ACCEPTED)
+
+	def test_payment_filter_and_dashboard(self):
+		paye = self.accepter(10, 12)
+		partiel = self.accepter(20, 22)
+		self.accepter(30, 32)
+		self.payer(paye, 200000)
+		self.payer(partiel, 50000)
+		admin = connecte(self.admin)
+		comptes = {f: admin.get(f"/api/admin/reservations/?payment={f}").json()["count"] for f in ("unpaid", "partial", "paid")}
+		self.assertEqual(comptes, {"unpaid": 1, "partial": 1, "paid": 1})
+		stats = admin.get("/api/admin/stats/").json()
+		self.assertEqual((stats["collected"], stats["balance_due"]), (250000, 350000))
+
+
+class AdminReservationPaginationTests(BaseCase):
+	def test_admin_reservations_are_paginated_by_8(self):
+		for i in range(9):
+			Reservation.objects.create(
+				customer=self.alice, room=self.room, check_in=self.today + timedelta(days=10 + 3 * i), check_out=self.today + timedelta(days=11 + 3 * i),
+				guests=1, price_per_night=100000, nights=1, total_amount=100000,
+			)
+		admin = connecte(self.admin)
+		page1 = admin.get("/api/admin/reservations/").json()
+		page2 = admin.get("/api/admin/reservations/?page=2").json()
+		self.assertEqual((page1["count"], len(page1["results"]), len(page2["results"])), (9, 8, 1))
+		self.assertEqual(admin.get("/api/admin/reservations/?page=3").status_code, 404)

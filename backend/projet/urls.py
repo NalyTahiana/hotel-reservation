@@ -31,6 +31,7 @@ urlpatterns = [
 	path('api/admin/reservations/<int:pk>/accept/'         , AdminReservationAction.as_view(), {"action": "accept"}   , name="admin_reservation_accept_name"),
 	path('api/admin/reservations/<int:pk>/refuse/'         , AdminReservationAction.as_view(), {"action": "refuse"}   , name="admin_reservation_refuse_name"),
 	path('api/admin/reservations/<int:pk>/cancel/'         , AdminReservationAction.as_view(), {"action": "cancel"}   , name="admin_reservation_cancel_name"),
+	path('api/admin/reservations/<int:pk>/payments/'       , AdminReservationPaiement.as_view() , name="admin_reservation_paiement_name"),
 	path('api/admin/customers/'                            , AdminClientListe.as_view()         , name="admin_client_liste_name"),
 	path('api/admin/customers/available-rooms/'            , AdminClientChambresLibres.as_view(), name="admin_client_chambres_libres_name"),
 	path('api/admin/customers/<int:pk>/'                   , AdminClientDetail.as_view()        , name="admin_client_detail_name"),

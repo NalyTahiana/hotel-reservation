@@ -3,8 +3,8 @@ import uuid
 from django.contrib.auth import authenticate, login, logout
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import transaction
-from django.db.models import Count, ProtectedError, Q, Sum
-from django.db.models.functions import TruncMonth
+from django.db.models import BigIntegerField, Count, F, ProtectedError, Q, Sum, Value
+from django.db.models.functions import Coalesce, TruncMonth
 from django.http import HttpResponse, JsonResponse
 from django.http.multipartparser import MultiPartParser
 from django.utils import timezone
@@ -160,7 +160,7 @@ class ServiceListe(VueApi):
 
 
 def reservations_de_base():
-	return Reservation.objects.select_related("room", "customer")
+	return Reservation.objects.select_related("room", "customer").prefetch_related("payments")
 
 
 class ReservationListe(VueApi):
@@ -376,12 +376,22 @@ class AdminReservationListe(VueApi):
 				Q(reference__icontains=mot) | Q(customer__first_name__icontains=mot)
 				| Q(customer__last_name__icontains=mot) | Q(customer__email__icontains=mot)
 			)
+		paiement = request.GET.get("payment")
+		if paiement in ("unpaid", "partial", "paid"):
+			paye = Coalesce(Sum("payments__amount"), Value(0), output_field=BigIntegerField())
+			reservations = reservations.filter(status__in=[Reservation.Status.ACCEPTED, Reservation.Status.COMPLETED]).annotate(paye=paye).order_by("-created_at", "-id")
+			if paiement == "unpaid":
+				reservations = reservations.filter(paye=0)
+			elif paiement == "partial":
+				reservations = reservations.filter(paye__gt=0, paye__lt=F("total_amount"))
+			else:
+				reservations = reservations.filter(paye__gte=F("total_amount"))
 		dates = self.valider(FormulaireFiltreDates(request.GET))
 		if dates.get("date_from"):
 			reservations = reservations.filter(check_out__gte=dates["date_from"])
 		if dates.get("date_to"):
 			reservations = reservations.filter(check_in__lte=dates["date_to"])
-		return self.reponse(self.paginer(request, reservations, 10, lambda r: r.en_json(request)))
+		return self.reponse(self.paginer(request, reservations, 5, lambda r: r.en_json(request)))
 
 
 class AdminReservationDetail(VueApi):
@@ -404,6 +414,17 @@ class AdminReservationAction(VueApi):
 			raise self.introuvable("Réservation introuvable.")
 		Reservation.appliquer(reservation_id=pk, action=action, acteur=request.user)
 		return self.reponse(reservations_de_base().get(pk=pk).en_json(request))
+
+
+class AdminReservationPaiement(VueApi):
+	administrateur = True
+
+	def post(self, request, pk):
+		Reservation.terminer_passees()
+		donnees, _ = self.lire(request)
+		propres = self.valider(FormulairePaiement(donnees))
+		Reservation.encaisser(reservation_id=pk, montant=propres["amount"], note=propres.get("note", ""), acteur=request.user)
+		return self.reponse(reservations_de_base().get(pk=pk).en_json(request), 201)
 
 
 class AdminClientListe(VueApi):
@@ -528,6 +549,11 @@ class AdminTableauDeBord(VueApi):
 			"cancelled"      : par_statut.get(S.CANCELLED, 0),
 			"completed"      : par_statut.get(S.COMPLETED, 0),
 			"revenue"        : Reservation.objects.filter(status=S.COMPLETED).aggregate(t=Sum("total_amount"))["t"] or 0,
+			"collected"      : Payment.objects.aggregate(t=Sum("amount"))["t"] or 0,
+			"balance_due"    : max(
+				(Reservation.objects.filter(status__in=[S.ACCEPTED, S.COMPLETED]).aggregate(t=Sum("total_amount"))["t"] or 0)
+				- (Payment.objects.filter(reservation__status__in=[S.ACCEPTED, S.COMPLETED]).aggregate(t=Sum("amount"))["t"] or 0), 0,
+			),
 			"monthly"        : [
 				{"label": f"{MOIS[m - 1]} {a}", **mensuel.get((a, m), {"count": 0, "revenue": 0})} for a, m in mois
 			],

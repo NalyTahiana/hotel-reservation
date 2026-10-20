@@ -271,6 +271,10 @@ class Reservation(models.Model):
 			"status"         : self.status,
 			"status_display" : self.get_status_display(),
 			"comment"        : self.comment,
+			"amount_paid"    : self.montant_paye,
+			"balance"        : self.reste_a_payer,
+			"payment_status" : self.statut_paiement,
+			"payments"       : [p.en_json() for p in self.payments.all()],
 			"actions"        : self.actions_permises(requete.user) if requete else [],
 			"created_at"     : timezone.localtime(self.created_at).isoformat(),
 			"updated_at"     : timezone.localtime(self.updated_at).isoformat(),
@@ -282,6 +286,21 @@ class Reservation(models.Model):
 			f"({self.nights} nuit(s)), {self.guests} personne(s), prix par nuit {en_ariary(self.price_per_night)}, "
 			f"total {en_ariary(self.total_amount)}."
 		)
+
+	@property
+	def montant_paye(self):
+		return sum(p.amount for p in self.payments.all())
+
+	@property
+	def reste_a_payer(self):
+		return max(self.total_amount - self.montant_paye, 0)
+
+	@property
+	def statut_paiement(self):
+		paye = self.montant_paye
+		if paye <= 0:
+			return "unpaid"
+		return "paid" if paye >= self.total_amount else "partial"
 
 	@classmethod
 	def chevauchantes(cls, room_id, check_in, check_out, exclure=None):
@@ -338,6 +357,27 @@ class Reservation(models.Model):
 			Notification.nouvelle_reservation(reservation)
 		return reservation
 
+	@classmethod
+	@transaction.atomic
+	def encaisser(cls, *, reservation_id, montant, note, acteur):
+		try:
+			reservation = cls.objects.select_for_update().get(pk=reservation_id)
+		except cls.DoesNotExist:
+			raise ErreurMetier({"detail": "Réservation introuvable."}, 404)
+		if reservation.status not in (cls.Status.ACCEPTED, cls.Status.COMPLETED):
+			raise ErreurMetier(
+				{"detail": "Un paiement ne peut être enregistré que pour une réservation acceptée ou terminée."}, 409,
+			)
+		reste = reservation.reste_a_payer
+		if reste <= 0:
+			raise ErreurMetier({"detail": "Cette réservation est déjà payée en totalité."}, 409)
+		if montant > reste:
+			raise ErreurMetier({"amount": [f"Le montant dépasse le reste à payer ({en_ariary(reste)})."]})
+		paiement = Payment.objects.create(reservation=reservation, amount=montant, note=note or "", received_by=acteur)
+		reservation = cls.objects.prefetch_related("payments").select_related("room", "customer").get(pk=reservation.pk)
+		Notification.paiement(reservation, paiement)
+		return reservation
+
 	def actions_permises(self, utilisateur):
 		aujourdhui = timezone.localdate()
 		if self.status == self.Status.PENDING:
@@ -368,6 +408,10 @@ class Reservation(models.Model):
 		except cls.DoesNotExist:
 			raise ErreurMetier({"detail": "Réservation introuvable."}, 404)
 		Room.objects.select_for_update().get(pk=reservation.room_id)
+		if cible == S.CANCELLED and not acteur.is_staff and reservation.montant_paye > 0:
+			raise ErreurMetier(
+				{"detail": "Un paiement a déjà été enregistré pour cette réservation : contactez l'hôtel pour l'annuler."}, 409,
+			)
 		if action not in reservation.actions_permises(acteur) or cible not in transitions[reservation.status]:
 			raise ErreurMetier(
 				{"detail": f"Impossible de passer une réservation « {reservation.get_status_display()} » à l'action « {action} »."},
@@ -390,12 +434,36 @@ class Reservation(models.Model):
 BLOQUANTS = [Reservation.Status.PENDING, Reservation.Status.ACCEPTED]
 
 
+class Payment(models.Model):
+	reservation = models.ForeignKey("Reservation", on_delete=models.CASCADE, related_name="payments")
+	amount      = models.PositiveBigIntegerField("montant payé (Ar)", validators=[MinValueValidator(1)])
+	note        = models.CharField("note", max_length=255, blank=True)
+	received_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="payments_received")
+	created_at  = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ["created_at", "id"]
+
+	def __str__(self):
+		return f"{self.reservation.reference} - {en_ariary(self.amount)}"
+
+	def en_json(self):
+		return {
+			"id"        : self.id,
+			"amount"    : self.amount,
+			"method"    : "Espèces",
+			"note"      : self.note,
+			"created_at": timezone.localtime(self.created_at).isoformat(),
+		}
+
+
 class Notification(models.Model):
 	class Kind(models.TextChoices):
 		NEW_RESERVATION = "new_reservation", "Nouvelle demande"
 		ACCEPTED        = "accepted", "Réservation acceptée"
 		REFUSED         = "refused", "Réservation refusée"
 		CANCELLED       = "cancelled", "Réservation annulée"
+		PAYMENT         = "payment", "Paiement enregistré"
 
 	user        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
 	kind        = models.CharField(max_length=20, choices=Kind.choices)
@@ -439,6 +507,15 @@ class Notification(models.Model):
 	def annulation_client(cls, r):
 		texte = f"{r.customer.full_name} a annulé la réservation {r.reference}. {r.details()}"
 		cls.vers_administrateurs(r, cls.Kind.CANCELLED, "Réservation annulée par le client", texte)
+
+	@classmethod
+	def paiement(cls, r, paiement):
+		if r.reste_a_payer <= 0:
+			fin = "Votre réservation est payée en totalité."
+		else:
+			fin = f"Reste à payer : {en_ariary(r.reste_a_payer)}."
+		texte = f"Paiement en espèces de {en_ariary(paiement.amount)} reçu pour la réservation {r.reference}. {fin}"
+		cls.objects.create(user=r.customer, kind=cls.Kind.PAYMENT, title="Paiement enregistré", message=texte, reservation=r)
 
 	@classmethod
 	def decision_admin(cls, r, statut):

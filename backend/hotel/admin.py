@@ -40,6 +40,12 @@ class ReservationAdmin(admin.ModelAdmin):
 	readonly_fields = ("reference", "created_at", "updated_at")
 
 
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+	list_display  = ("reservation", "amount", "received_by", "created_at")
+	search_fields = ("reservation__reference",)
+
+
 @admin.register(HotelService)
 class HotelServiceAdmin(admin.ModelAdmin):
 	list_display  = ("name", "kind", "is_active")

@@ -6,6 +6,7 @@ import ErrorMessage from "../components/ErrorMessage";
 import Loader from "../components/Loader";
 import Modal from "../components/Modal";
 import Pagination from "../components/Pagination";
+import PaymentBadge from "../components/PaymentBadge";
 import StatusBadge from "../components/StatusBadge";
 import { useToast } from "../context/ToastContext";
 import useFetch from "../hooks/useFetch";
@@ -58,7 +59,7 @@ export default function MyReservations() {
       {data && data.results.length > 0 && (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Référence</th><th>Chambre</th><th>Arrivée</th><th>Départ</th><th>Nuits</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Référence</th><th>Chambre</th><th>Arrivée</th><th>Départ</th><th>Nuits</th><th>Total</th><th>Statut</th><th>Paiement</th><th>Actions</th></tr></thead>
             <tbody>
               {data.results.map((r) => (
                 <tr key={r.id}>
@@ -69,6 +70,7 @@ export default function MyReservations() {
                   <td data-label="Nuits">{r.nights}</td>
                   <td data-label="Total">{formatAr(r.total_amount)}</td>
                   <td data-label="Statut"><StatusBadge status={r.status} /></td>
+                  <td data-label="Paiement"><PaymentBadge reservation={r} /></td>
                   <td data-label="Actions" className="actions">
                     <button className="btn btn-sm btn-outline" onClick={() => setDetail(r)}>Détails</button>
                     {r.actions.includes("cancel") && <button className="btn btn-sm btn-danger" onClick={() => setToCancel(r)}>Annuler</button>}
@@ -92,6 +94,15 @@ export default function MyReservations() {
             <dt>Nuits</dt><dd>{detail.nights}</dd>
             <dt>Total</dt><dd><strong>{formatAr(detail.total_amount)}</strong></dd>
             <dt>Statut</dt><dd><StatusBadge status={detail.status} /></dd>
+            {["accepted", "completed"].includes(detail.status) && (<>
+              <dt>Paiement</dt><dd><PaymentBadge reservation={detail} /></dd>
+              <dt>Déjà payé</dt><dd>{formatAr(detail.amount_paid)}</dd>
+              <dt>Reste à payer</dt><dd><strong>{formatAr(detail.balance)}</strong> (à régler en espèces à l'hôtel)</dd>
+            </>)}
+            {detail.payments.length > 0 && (<>
+              <dt>Versements</dt>
+              <dd><ul className="pay-history">{detail.payments.map((p) => <li key={p.id}>{formatDateTime(p.created_at)} : {formatAr(p.amount)}</li>)}</ul></dd>
+            </>)}
             <dt>Demandée le</dt><dd>{formatDateTime(detail.created_at)}</dd>
             {detail.comment && (<><dt>Commentaire</dt><dd>{detail.comment}</dd></>)}
           </dl>

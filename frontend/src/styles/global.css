@@ -145,6 +145,11 @@ input:disabled { background: #eef1f3; color: var(--muted); }
 .badge-accepted { color: var(--ok); background: #e8f4ec; border-color: #b5d9c2; }
 .badge-refused { color: var(--danger); background: #fbeceb; border-color: #e5b3ad; }
 .badge-cancelled { color: var(--muted); background: #eef1f3; border-color: var(--border); }
+.badge-pay-unpaid { color: var(--warn); background: #fdf5e2; border-color: #e8d19a; }
+.badge-pay-partial { color: var(--primary); background: #eaf1f4; border-color: #bcd0d8; }
+.badge-pay-paid { color: var(--ok); background: #e8f4ec; border-color: #b5d9c2; }
+.pay-history { margin: 0 0 1rem; padding-left: 1.1rem; }
+.pay-history li { margin-bottom: 0.25rem; }
 .badge-completed { color: var(--primary); background: #eaf1f4; border-color: #bcd0d8; }
 .pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin: 1.25rem 0; flex-wrap: wrap; }
 

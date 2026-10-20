@@ -29,4 +29,5 @@ export const STATUS_LABELS = {
   cancelled: "Annulée",
   completed: "Terminée",
 };
+export const PAYMENT_LABELS = { unpaid: "Non payée", partial: "Partiel", paid: "Payée" };
 export const ROOM_TYPES = { simple: "Simple", double: "Double", familiale: "Familiale", suite: "Suite" };

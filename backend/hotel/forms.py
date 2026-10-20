@@ -112,6 +112,11 @@ class FormulaireReservation(forms.Form):
 		return donnees
 
 
+class FormulairePaiement(forms.Form):
+	amount = forms.IntegerField(min_value=1)
+	note   = forms.CharField(required=False, max_length=255)
+
+
 class FormulaireClientHotel(forms.Form):
 	last_name  = forms.CharField(max_length=100)
 	first_name = forms.CharField(max_length=100)

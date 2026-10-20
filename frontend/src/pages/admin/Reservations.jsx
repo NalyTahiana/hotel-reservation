@@ -2,29 +2,35 @@ import { useState } from "react";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import EmptyState from "../../components/EmptyState";
 import ErrorMessage from "../../components/ErrorMessage";
+import Field from "../../components/Field";
 import Loader from "../../components/Loader";
 import Modal from "../../components/Modal";
 import Pagination from "../../components/Pagination";
+import PaymentBadge from "../../components/PaymentBadge";
 import StatusBadge from "../../components/StatusBadge";
 import { useToast } from "../../context/ToastContext";
 import useFetch from "../../hooks/useFetch";
-import { adminReservations, reservationAction } from "../../services/admin";
-import { formatAr, formatDate, formatDateTime, STATUS_LABELS } from "../../utils/format";
+import { adminReservations, recordPayment, reservationAction } from "../../services/admin";
+import { formatAr, formatDate, formatDateTime, PAYMENT_LABELS, STATUS_LABELS } from "../../utils/format";
 
 const ACTION_TEXT = {
-  accept: ["Accepter la demande", "La disponibilité sera revérifiée avant l'acceptation.", "Accepter"],
+  accept: ["Accepter la demande", "La disponibilité sera revérifiée. Le client règle ensuite en espèces : vous enregistrerez le paiement avec le bouton Encaisser.", "Accepter"],
   refuse: ["Refuser la demande", "Les dates seront libérées pour d'autres clients.", "Refuser"],
   cancel: ["Annuler la réservation", "Les dates seront libérées. Cette action est définitive.", "Annuler la réservation"],
 };
 const ACTION_LABEL = { accept: "Accepter", refuse: "Refuser", cancel: "Annuler" };
+const canCollect = (r) => ["accepted", "completed"].includes(r.status) && r.balance > 0;
 
 export default function Reservations() {
   const toast = useToast();
-  const [filters, setFilters] = useState({ q: "", status: "", date_from: "", date_to: "" });
+  const [filters, setFilters] = useState({ q: "", status: "", payment: "", date_from: "", date_to: "" });
   const [page, setPage] = useState(1);
   const [detail, setDetail] = useState(null);
   const [pending, setPending] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [paying, setPaying] = useState(null);
+  const [payForm, setPayForm] = useState({ amount: "", note: "" });
+  const [payError, setPayError] = useState("");
   const { data, loading, error, reload } = useFetch(() => adminReservations({ ...filters, page }), [page, JSON.stringify(filters)]);
   const set = (k) => (e) => { setFilters({ ...filters, [k]: e.target.value }); setPage(1); };
 
@@ -44,6 +50,31 @@ export default function Reservations() {
     }
   };
 
+  const openPayment = (r) => {
+    setPaying(r);
+    setPayForm({ amount: String(r.balance), note: "" });
+    setPayError("");
+  };
+
+  const submitPayment = async (e) => {
+    e.preventDefault();
+    const amount = Number(payForm.amount);
+    if (!Number.isInteger(amount) || amount < 1) return setPayError("Saisissez un montant entier supérieur à 0.");
+    if (amount > paying.balance) return setPayError(`Le montant dépasse le reste à payer (${formatAr(paying.balance)}).`);
+    setBusy(true);
+    try {
+      const updated = await recordPayment(paying.id, { amount, note: payForm.note.trim() });
+      toast.success(updated.balance === 0 ? "Paiement enregistré : réservation payée en totalité." : `Paiement enregistré. Reste à payer : ${formatAr(updated.balance)}.`);
+      setPaying(null);
+      setDetail(null);
+    } catch (err) {
+      setPayError(err.fields?.amount || err.message);
+    } finally {
+      setBusy(false);
+      reload();
+    }
+  };
+
   return (
     <>
       <h1>Réservations</h1>
@@ -55,6 +86,12 @@ export default function Reservations() {
             {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </label>
+        <label>Paiement
+          <select value={filters.payment} onChange={set("payment")}>
+            <option value="">Tous</option>
+            {Object.entries(PAYMENT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
         <label>Du<input type="date" value={filters.date_from} onChange={set("date_from")} /></label>
         <label>Au<input type="date" value={filters.date_to} onChange={set("date_to")} /></label>
       </div>
@@ -64,7 +101,7 @@ export default function Reservations() {
       {data && data.results.length > 0 && (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Référence</th><th>Client</th><th>Chambre</th><th>Arrivée</th><th>Départ</th><th>Nuits</th><th>Total</th><th>Demandée le</th><th>Statut</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Référence</th><th>Client</th><th>Chambre</th><th>Arrivée</th><th>Départ</th><th>Nuits</th><th>Total</th><th>Payé</th><th>Demandée le</th><th>Statut</th><th>Paiement</th><th>Actions</th></tr></thead>
             <tbody>
               {data.results.map((r) => (
                 <tr key={r.id}>
@@ -75,10 +112,13 @@ export default function Reservations() {
                   <td data-label="Départ">{formatDate(r.check_out)}</td>
                   <td data-label="Nuits">{r.nights}</td>
                   <td data-label="Total">{formatAr(r.total_amount)}</td>
+                  <td data-label="Payé">{formatAr(r.amount_paid)}</td>
                   <td data-label="Demandée le">{formatDateTime(r.created_at)}</td>
                   <td data-label="Statut"><StatusBadge status={r.status} /></td>
+                  <td data-label="Paiement"><PaymentBadge reservation={r} /></td>
                   <td data-label="Actions" className="actions">
                     <button className="btn btn-sm btn-outline" onClick={() => setDetail(r)}>Détails</button>
+                    {canCollect(r) && <button className="btn btn-sm btn-primary" onClick={() => openPayment(r)}>Encaisser</button>}
                     {r.actions.map((a) => (
                       <button key={a} className={`btn btn-sm ${a === "accept" ? "btn-primary" : "btn-danger"}`} onClick={() => setPending({ reservation: r, action: a })}>
                         {ACTION_LABEL[a]}
@@ -91,7 +131,7 @@ export default function Reservations() {
           </table>
         </div>
       )}
-      {data && <Pagination page={page} count={data.count} onChange={setPage} />}
+      {data && <Pagination page={page} count={data.count} pageSize={5} onChange={setPage} />}
 
       <Modal open={!!detail} title={detail ? `Réservation ${detail.reference}` : ""} onClose={() => setDetail(null)}>
         {detail && (
@@ -104,8 +144,39 @@ export default function Reservations() {
             <dt>Prix par nuit</dt><dd>{formatAr(detail.price_per_night)}</dd>
             <dt>Total</dt><dd><strong>{formatAr(detail.total_amount)}</strong></dd>
             <dt>Statut</dt><dd><StatusBadge status={detail.status} /></dd>
+            <dt>Paiement</dt><dd><PaymentBadge reservation={detail} /></dd>
+            <dt>Déjà payé</dt><dd>{formatAr(detail.amount_paid)}</dd>
+            <dt>Reste à payer</dt><dd><strong>{formatAr(detail.balance)}</strong></dd>
+            {detail.payments.length > 0 && (<>
+              <dt>Versements</dt>
+              <dd><ul className="pay-history">{detail.payments.map((p) => <li key={p.id}>{formatDateTime(p.created_at)} : {formatAr(p.amount)} en espèces{p.note ? ` (${p.note})` : ""}</li>)}</ul></dd>
+            </>)}
             <dt>Commentaire</dt><dd>{detail.comment || "Aucun"}</dd>
           </dl>
+        )}
+        {detail && canCollect(detail) && <button className="btn btn-primary" onClick={() => openPayment(detail)}>Encaisser un paiement</button>}
+      </Modal>
+      <Modal open={!!paying} title={paying ? `Paiement en espèces - ${paying.reference}` : ""} onClose={() => !busy && setPaying(null)}>
+        {paying && (
+          <form className="form" onSubmit={submitPayment} noValidate>
+            <dl className="details">
+              <dt>Client</dt><dd>{paying.customer.full_name}</dd>
+              <dt>Total</dt><dd>{formatAr(paying.total_amount)}</dd>
+              <dt>Déjà payé</dt><dd>{formatAr(paying.amount_paid)}</dd>
+              <dt>Reste à payer</dt><dd><strong>{formatAr(paying.balance)}</strong></dd>
+            </dl>
+            <Field label="Montant reçu (Ar)" error={payError} hint="Saisissez la somme remise par le client.">
+              <input type="number" min="1" max={paying.balance} step="1" inputMode="numeric" value={payForm.amount} autoFocus
+                onChange={(e) => { setPayForm({ ...payForm, amount: e.target.value }); setPayError(""); }} />
+            </Field>
+            <Field label="Note (facultatif)">
+              <input maxLength={255} value={payForm.note} onChange={(e) => setPayForm({ ...payForm, note: e.target.value })} placeholder="Acompte, solde, reçu n° ..." />
+            </Field>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-outline" disabled={busy} onClick={() => setPayForm({ ...payForm, amount: String(paying.balance) })}>Solde complet</button>
+              <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "Veuillez patienter..." : "Enregistrer le paiement"}</button>
+            </div>
+          </form>
         )}
       </Modal>
       <ConfirmDialog

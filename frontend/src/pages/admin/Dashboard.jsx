@@ -29,6 +29,8 @@ export default function Dashboard() {
         <Card label="Réservations acceptées" value={s.accepted} />
         <Card label="Réservations refusées" value={s.refused} />
         <Card label="Chiffre d'affaires" value={formatAr(s.revenue)} note="séjours terminés uniquement" />
+        <Card label="Montant encaissé" value={formatAr(s.collected)} note="paiements en espèces enregistrés" />
+        <Card label="Reste à encaisser" value={formatAr(s.balance_due)} note="réservations acceptées ou terminées" />
       </div>
       <div className="grid grid-2">
         <div className="panel"><BarChart title="Réservations par mois d'arrivée (hors refusées et annulées)" data={s.monthly} valueKey="count" /></div>
