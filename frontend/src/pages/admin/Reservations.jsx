@@ -3,6 +3,7 @@ import ConfirmDialog from "../../components/ConfirmDialog";
 import EmptyState from "../../components/EmptyState";
 import ErrorMessage from "../../components/ErrorMessage";
 import Field from "../../components/Field";
+import InvoiceModal from "../../components/InvoiceModal";
 import Loader from "../../components/Loader";
 import Modal from "../../components/Modal";
 import Pagination from "../../components/Pagination";
@@ -10,7 +11,7 @@ import PaymentBadge from "../../components/PaymentBadge";
 import StatusBadge from "../../components/StatusBadge";
 import { useToast } from "../../context/ToastContext";
 import useFetch from "../../hooks/useFetch";
-import { adminReservations, recordPayment, reservationAction } from "../../services/admin";
+import { adminInvoice, adminReservations, recordPayment, reservationAction } from "../../services/admin";
 import { formatAr, formatDate, formatDateTime, PAYMENT_LABELS, STATUS_LABELS } from "../../utils/format";
 
 const ACTION_TEXT = {
@@ -28,6 +29,7 @@ export default function Reservations() {
   const [detail, setDetail] = useState(null);
   const [pending, setPending] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [invoiceId, setInvoiceId] = useState(null);
   const [paying, setPaying] = useState(null);
   const [payForm, setPayForm] = useState({ amount: "", note: "" });
   const [payError, setPayError] = useState("");
@@ -67,6 +69,7 @@ export default function Reservations() {
       toast.success(updated.balance === 0 ? "Paiement enregistré : réservation payée en totalité." : `Paiement enregistré. Reste à payer : ${formatAr(updated.balance)}.`);
       setPaying(null);
       setDetail(null);
+      setInvoiceId(updated.id);
     } catch (err) {
       setPayError(err.fields?.amount || err.message);
     } finally {
@@ -118,6 +121,7 @@ export default function Reservations() {
                   <td data-label="Paiement"><PaymentBadge reservation={r} /></td>
                   <td data-label="Actions" className="actions">
                     <button className="btn btn-sm btn-outline" onClick={() => setDetail(r)}>Détails</button>
+                    {r.amount_paid > 0 && <button className="btn btn-sm btn-outline" onClick={() => setInvoiceId(r.id)}>Facture</button>}
                     {canCollect(r) && <button className="btn btn-sm btn-primary" onClick={() => openPayment(r)}>Encaisser</button>}
                     {r.actions.map((a) => (
                       <button key={a} className={`btn btn-sm ${a === "accept" ? "btn-primary" : "btn-danger"}`} onClick={() => setPending({ reservation: r, action: a })}>
@@ -154,7 +158,12 @@ export default function Reservations() {
             <dt>Commentaire</dt><dd>{detail.comment || "Aucun"}</dd>
           </dl>
         )}
-        {detail && canCollect(detail) && <button className="btn btn-primary" onClick={() => openPayment(detail)}>Encaisser un paiement</button>}
+        {detail && (
+          <div className="actions">
+            {canCollect(detail) && <button className="btn btn-primary" onClick={() => openPayment(detail)}>Encaisser un paiement</button>}
+            {detail.amount_paid > 0 && <button className="btn btn-outline" onClick={() => { setInvoiceId(detail.id); setDetail(null); }}>Voir la facture</button>}
+          </div>
+        )}
       </Modal>
       <Modal open={!!paying} title={paying ? `Paiement en espèces - ${paying.reference}` : ""} onClose={() => !busy && setPaying(null)}>
         {paying && (
@@ -179,6 +188,7 @@ export default function Reservations() {
           </form>
         )}
       </Modal>
+      <InvoiceModal open={invoiceId !== null} fetcher={() => adminInvoice(invoiceId)} onClose={() => setInvoiceId(null)} />
       <ConfirmDialog
         open={!!pending} busy={busy} danger={pending?.action !== "accept"}
         title={pending ? ACTION_TEXT[pending.action][0] : ""}

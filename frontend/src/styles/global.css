@@ -239,3 +239,26 @@ input:disabled { background: #eef1f3; color: var(--muted); }
 .password-toggle { position: absolute; right: 0.3rem; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; padding: 0.35rem; border: 0; background: none; color: var(--muted); cursor: pointer; border-radius: 6px; }
 .password-toggle:hover { color: var(--text); }
 .password-toggle:focus-visible { outline: 2px solid var(--primary, #1f4e5f); outline-offset: 1px; }
+
+/* Facture */
+.invoice { font-size: 0.92rem; color: #111; }
+.invoice h2 { margin: 0 0 0.3rem; }
+.invoice h4 { margin: 1rem 0 0.4rem; }
+.invoice p { margin: 0.1rem 0; }
+.invoice-head { display: flex; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; border-bottom: 2px solid var(--primary); padding-bottom: 0.8rem; }
+.invoice-id { text-align: right; }
+.invoice-table { width: 100%; border-collapse: collapse; margin: 0.4rem 0 0.8rem; }
+.invoice-table th, .invoice-table td { border: 1px solid var(--border); padding: 0.4rem 0.5rem; text-align: left; }
+.invoice-table th { background: #eef3f5; }
+.invoice-totals { display: grid; grid-template-columns: 1fr auto; gap: 0.3rem 1.5rem; max-width: 320px; margin: 0.6rem 0 0.6rem auto; }
+.invoice-totals dt { color: var(--muted); }
+.invoice-totals dd { margin: 0; text-align: right; }
+.invoice-status { font-weight: 700; margin-top: 0.6rem; }
+.invoice-foot { color: var(--muted); font-size: 0.8rem; margin-top: 1rem; }
+.modal-actions { align-items: center; }
+@media print {
+  body * { visibility: hidden; }
+  .invoice-print, .invoice-print * { visibility: visible; }
+  .invoice-print { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
+}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import ConfirmDialog from "../components/ConfirmDialog";
 import EmptyState from "../components/EmptyState";
+import InvoiceModal from "../components/InvoiceModal";
 import ErrorMessage from "../components/ErrorMessage";
 import Loader from "../components/Loader";
 import Modal from "../components/Modal";
@@ -10,7 +11,7 @@ import PaymentBadge from "../components/PaymentBadge";
 import StatusBadge from "../components/StatusBadge";
 import { useToast } from "../context/ToastContext";
 import useFetch from "../hooks/useFetch";
-import { cancelMyReservation, myReservations } from "../services/reservations";
+import { cancelMyReservation, myInvoice, myReservations } from "../services/reservations";
 import { formatAr, formatDate, formatDateTime, STATUS_LABELS } from "../utils/format";
 
 export default function MyReservations() {
@@ -19,6 +20,7 @@ export default function MyReservations() {
   const [status, setStatus] = useState("");
   const [detail, setDetail] = useState(null);
   const [toCancel, setToCancel] = useState(null);
+  const [invoiceId, setInvoiceId] = useState(null);
   const [busy, setBusy] = useState(false);
   const { data, loading, error, reload } = useFetch(() => myReservations({ page, status }), [page, status]);
 
@@ -73,6 +75,7 @@ export default function MyReservations() {
                   <td data-label="Paiement"><PaymentBadge reservation={r} /></td>
                   <td data-label="Actions" className="actions">
                     <button className="btn btn-sm btn-outline" onClick={() => setDetail(r)}>Détails</button>
+                    {r.amount_paid > 0 && <button className="btn btn-sm btn-outline" onClick={() => setInvoiceId(r.id)}>Facture</button>}
                     {r.actions.includes("cancel") && <button className="btn btn-sm btn-danger" onClick={() => setToCancel(r)}>Annuler</button>}
                   </td>
                 </tr>
@@ -108,6 +111,7 @@ export default function MyReservations() {
           </dl>
         )}
       </Modal>
+      <InvoiceModal open={invoiceId !== null} fetcher={() => myInvoice(invoiceId)} onClose={() => setInvoiceId(null)} />
       <ConfirmDialog
         open={!!toCancel} danger busy={busy} title="Annuler la réservation"
         message={toCancel ? `Voulez-vous vraiment annuler la réservation ${toCancel.reference} ? Cette action est définitive.` : ""}

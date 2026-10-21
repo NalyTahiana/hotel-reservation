@@ -206,6 +206,21 @@ class ReservationAnnulation(VueApi):
 		return self.reponse(reservations_de_base().get(pk=pk).en_json(request))
 
 
+def reponse_facture(vue, reservation):
+	if reservation is None:
+		raise vue.introuvable("Réservation introuvable.")
+	if not reservation.payments.all():
+		raise ErreurMetier({"detail": "Aucune facture : aucun paiement n'a encore été enregistré pour cette réservation."}, 409)
+	return vue.reponse(reservation.en_json_facture())
+
+
+class ReservationFacture(VueApi):
+	connexion = True
+
+	def get(self, request, pk):
+		return reponse_facture(self, reservations_de_base().filter(customer=request.user, pk=pk).first())
+
+
 class NotificationListe(VueApi):
 	connexion = True
 
@@ -414,6 +429,13 @@ class AdminReservationAction(VueApi):
 			raise self.introuvable("Réservation introuvable.")
 		Reservation.appliquer(reservation_id=pk, action=action, acteur=request.user)
 		return self.reponse(reservations_de_base().get(pk=pk).en_json(request))
+
+
+class AdminReservationFacture(VueApi):
+	administrateur = True
+
+	def get(self, request, pk):
+		return reponse_facture(self, reservations_de_base().filter(pk=pk).first())
 
 
 class AdminReservationPaiement(VueApi):

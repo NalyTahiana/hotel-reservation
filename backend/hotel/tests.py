@@ -549,7 +549,7 @@ class PaymentTests(BaseCase):
 
 
 class AdminReservationPaginationTests(BaseCase):
-	def test_admin_reservations_are_paginated_by_8(self):
+	def test_admin_reservations_are_paginated_by_5(self):
 		for i in range(9):
 			Reservation.objects.create(
 				customer=self.alice, room=self.room, check_in=self.today + timedelta(days=10 + 3 * i), check_out=self.today + timedelta(days=11 + 3 * i),
@@ -558,5 +558,52 @@ class AdminReservationPaginationTests(BaseCase):
 		admin = connecte(self.admin)
 		page1 = admin.get("/api/admin/reservations/").json()
 		page2 = admin.get("/api/admin/reservations/?page=2").json()
-		self.assertEqual((page1["count"], len(page1["results"]), len(page2["results"])), (9, 8, 1))
+		self.assertEqual((page1["count"], len(page1["results"]), len(page2["results"])), (9, 5, 4))
 		self.assertEqual(admin.get("/api/admin/reservations/?page=3").status_code, 404)
+
+
+class InvoiceTests(BaseCase):
+	def reservation_payee(self, montant=50000):
+		reservation = self.reserver(self.alice, 10, 12).json()
+		connecte(self.admin).post(f"/api/admin/reservations/{reservation['id']}/accept/")
+		envoyer(connecte(self.admin), f"/api/admin/reservations/{reservation['id']}/payments/", {"amount": montant})
+		return reservation["id"]
+
+	def test_no_invoice_without_payment(self):
+		reservation = self.reserver(self.alice, 10, 12).json()["id"]
+		self.assertEqual(connecte(self.alice).get(f"/api/reservations/{reservation}/invoice/").status_code, 409)
+		self.assertEqual(connecte(self.admin).get(f"/api/admin/reservations/{reservation}/invoice/").status_code, 409)
+
+	def test_client_and_admin_get_the_same_invoice(self):
+		identifiant = self.reservation_payee(50000)
+		cote_client = connecte(self.alice).get(f"/api/reservations/{identifiant}/invoice/")
+		cote_admin = connecte(self.admin).get(f"/api/admin/reservations/{identifiant}/invoice/")
+		self.assertEqual(cote_client.status_code, 200, cote_client.content)
+		self.assertEqual(cote_client.json(), cote_admin.json())
+		facture = cote_admin.json()
+		self.assertTrue(facture["number"].startswith("FAC-"))
+		self.assertEqual((facture["total_amount"], facture["amount_paid"], facture["balance"], facture["payment_status"]), (200000, 50000, 150000, "partial"))
+		self.assertTrue(facture["payments"][0]["receipt"].startswith("REC-"))
+
+	def test_invoice_updates_when_fully_paid(self):
+		identifiant = self.reservation_payee(50000)
+		envoyer(connecte(self.admin), f"/api/admin/reservations/{identifiant}/payments/", {"amount": 150000})
+		facture = connecte(self.admin).get(f"/api/admin/reservations/{identifiant}/invoice/").json()
+		self.assertEqual((facture["balance"], facture["payment_status"], len(facture["payments"])), (0, "paid", 2))
+
+	def test_client_cannot_read_someone_elses_invoice(self):
+		identifiant = self.reservation_payee()
+		self.assertEqual(connecte(self.bob).get(f"/api/reservations/{identifiant}/invoice/").status_code, 404)
+		self.assertEqual(connecte(self.bob).get(f"/api/admin/reservations/{identifiant}/invoice/").status_code, 403)
+		self.assertEqual(Client().get(f"/api/reservations/{identifiant}/invoice/").status_code, 403)
+
+	def test_walk_in_customer_created_by_admin_has_invoice(self):
+		admin = connecte(self.admin)
+		r = envoyer(admin, "/api/admin/customers/", {
+			"last_name": "Rabe", "first_name": "Jean", "phone": "0341112233",
+			"room": self.room.pk, "check_in": self.d(5), "check_out": self.d(7), "guests": 1,
+		})
+		identifiant = r.json()["reservation"]["id"]
+		envoyer(admin, f"/api/admin/reservations/{identifiant}/payments/", {"amount": 200000})
+		facture = admin.get(f"/api/admin/reservations/{identifiant}/invoice/").json()
+		self.assertEqual((facture["customer"]["full_name"], facture["customer"]["email"], facture["payment_status"]), ("Jean Rabe", "", "paid"))

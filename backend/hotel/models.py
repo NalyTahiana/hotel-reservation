@@ -280,6 +280,33 @@ class Reservation(models.Model):
 			"updated_at"     : timezone.localtime(self.updated_at).isoformat(),
 		}
 
+	@property
+	def numero_facture(self):
+		return "FAC-" + self.reference.split("-", 1)[-1]
+
+	def en_json_facture(self):
+		paiements = list(self.payments.all())
+		client = self.customer
+		chambre = self.room
+		return {
+			"number"        : self.numero_facture,
+			"issued_at"     : timezone.localtime(paiements[-1].created_at).isoformat() if paiements else None,
+			"reference"     : self.reference,
+			"status"        : self.status,
+			"customer"      : {"full_name": client.full_name, "email": client.contact_email, "phone": client.phone},
+			"room"          : {"number": chambre.number, "name": chambre.name, "room_type": chambre.get_room_type_display()},
+			"check_in"      : self.check_in.isoformat(),
+			"check_out"     : self.check_out.isoformat(),
+			"guests"        : self.guests,
+			"nights"        : self.nights,
+			"price_per_night": self.price_per_night,
+			"total_amount"  : self.total_amount,
+			"amount_paid"   : self.montant_paye,
+			"balance"       : self.reste_a_payer,
+			"payment_status": self.statut_paiement,
+			"payments"      : [p.en_json() for p in paiements],
+		}
+
 	def details(self):
 		return (
 			f"Chambre n° {self.room.number} ({self.room.name}), du {self.check_in:%d/%m/%Y} au {self.check_out:%d/%m/%Y} "
@@ -450,6 +477,7 @@ class Payment(models.Model):
 	def en_json(self):
 		return {
 			"id"        : self.id,
+			"receipt"   : f"REC-{self.id:06d}",
 			"amount"    : self.amount,
 			"method"    : "Espèces",
 			"note"      : self.note,

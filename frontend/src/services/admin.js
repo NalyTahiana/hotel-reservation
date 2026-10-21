@@ -11,6 +11,7 @@ export const deleteRoomImage = (id, imageId) => del(`/admin/rooms/${id}/images/$
 
 export const adminReservations = (params) => get("/admin/reservations/", params);
 export const reservationAction = (id, action) => post(`/admin/reservations/${id}/${action}/`);
+export const adminInvoice = (id) => get(`/admin/reservations/${id}/invoice/`);
 export const recordPayment = (id, payload) => post(`/admin/reservations/${id}/payments/`, payload);
 
 export const adminCustomers = (params) => get("/admin/customers/", params);
