@@ -22,7 +22,7 @@ export default function RoomCard({ room, search }) {
         <p className="price"><strong>{formatAr(room.price_per_night)}</strong> <span className="muted">/ nuit</span></p>
         <div className="card-actions">
           <Link className="btn btn-outline" to={`/chambres/${room.id}${qs}`}>Voir les détails</Link>
-          <Link className="btn btn-primary" to={`/reservation/${room.id}${qs}`}>Réserver cette chambre</Link>
+          <Link className="btn btn-primary" to={`/reservation/${room.id}${qs}`}>Réserver</Link>
         </div>
       </div>
     </article>

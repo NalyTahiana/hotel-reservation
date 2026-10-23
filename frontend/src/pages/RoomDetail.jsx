@@ -73,7 +73,7 @@ export default function RoomDetail() {
             {datesOk && room.available === false && (
               <p className="text-danger">Cette chambre n'est pas disponible à ces dates. Essayez d'autres dates ou <Link to="/chambres">une autre chambre</Link>.</p>
             )}
-            <Link className="btn btn-primary" to={`/reservation/${room.id}${bookingQs ? `?${bookingQs}` : ""}`}>Réserver cette chambre</Link>
+            <Link className="btn btn-primary" to={`/reservation/${room.id}${bookingQs ? `?${bookingQs}` : ""}`}>Réserver</Link>
           </div>
         </div>
       </div>
