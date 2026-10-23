@@ -11,6 +11,7 @@ const LINKS = [
   ["/admin/chambres", "Chambres"],
   ["/admin/clients", "Clients"],
   ["/admin/services", "Services et activités"],
+  ["/admin/a-propos", "À propos"],
 ];
 
 export default function AdminLayout() {

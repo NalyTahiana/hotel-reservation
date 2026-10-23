@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import Register from "./pages/Register";
 import RoomDetail from "./pages/RoomDetail";
 import Rooms from "./pages/Rooms";
+import AdminAbout from "./pages/admin/About";
 import AdminCustomers from "./pages/admin/Customers";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminReservations from "./pages/admin/Reservations";
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="chambres" element={<AdminRooms />} />
         <Route path="clients" element={<AdminCustomers />} />
         <Route path="services" element={<AdminServices />} />
+        <Route path="a-propos" element={<AdminAbout />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
