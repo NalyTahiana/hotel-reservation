@@ -4,8 +4,8 @@ export const HOTEL = {
   about:
     "Notre établissement accueille voyageurs d'affaires et familles dans un cadre simple et soigné. " +
     "Chambres confortables, restaurant, piscine et personnel à votre écoute pour que votre séjour se passe au mieux.",
-  address: "Lot 000, Antananarivo 101, Madagascar",
-  phone: "034 00 000 00",
+  address: "Lot IG, Antananarivo 101, Madagascar",
+  phone: "034 44 227 90",
   email: "contact@hotel-vahiny.example",
   hours: "Réception ouverte 24 h/24 - Arrivée à partir de 14 h, départ avant 11 h",
   heroImage: "/images/hero.jpg",
