@@ -246,7 +246,7 @@ export default function About() {
           Site public, espace client et administration pour réserver une chambre, suivre les demandes, encaisser les paiements en espèces
           et remettre une facture. Les montants sont en ariary (Ar).
         </p>
-        <p className="muted">Technologies : Django 5 (architecture MVT, vues en classes), React 18 avec Vite, PostgreSQL.</p>
+        <p className="muted">Technologies : Django 5, React 18 avec Vite, PostgreSQL.</p>
       </div>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === "mpd"} className={`tab ${tab === "mpd" ? "active" : ""}`} onClick={() => setTab("mpd")}>Schéma MPD (Merise)</button>
