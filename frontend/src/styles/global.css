@@ -151,7 +151,18 @@ input:disabled { background: #eef1f3; color: var(--muted); }
 .pay-history { margin: 0 0 1rem; padding-left: 1.1rem; }
 .pay-history li { margin-bottom: 0.25rem; }
 .badge-completed { color: var(--primary); background: #eaf1f4; border-color: #bcd0d8; }
-.pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin: 1.25rem 0; flex-wrap: wrap; }
+.pagination { display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin: 1.25rem 0; flex-wrap: wrap; }
+.page-list { display: flex; align-items: center; gap: 0.35rem; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; justify-content: center; }
+.page-btn {
+  min-width: 2.2rem; height: 2.2rem; padding: 0 0.7rem; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); color: var(--text); font: inherit; font-size: 0.9rem; cursor: pointer;
+}
+.page-btn:hover:not(:disabled):not(.active) { border-color: var(--primary); color: var(--primary); background: #eef3f5; }
+.page-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.page-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; cursor: default; }
+.page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.page-nav { color: var(--primary); }
+.page-gap { min-width: 1.4rem; text-align: center; color: var(--muted); user-select: none; }
 
 .footer { background: var(--primary-dark); color: #dbe5e9; padding-top: 2.5rem; }
 .footer a { color: #fff; }
