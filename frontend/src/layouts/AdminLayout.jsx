@@ -5,6 +5,8 @@ import { MenuIcon } from "../components/Icons";
 import NotificationBell from "../components/NotificationBell";
 import { HOTEL } from "../utils/hotel";
 
+const CODE_URL = "https://github.com/NalyTahiana";
+
 const LINKS = [
   ["/admin", "Tableau de bord", true],
   ["/admin/reservations", "Réservations"],
@@ -27,6 +29,7 @@ export default function AdminLayout() {
           {LINKS.map(([to, label, end]) => (
             <NavLink key={to} to={to} end={end} onClick={() => setOpen(false)}>{label}</NavLink>
           ))}
+          <a href={CODE_URL} target="_blank" rel="noopener noreferrer">Voir le code</a>
         </nav>
         <Link className="sidebar-site" to="/">Voir le site public</Link>
       </aside>
